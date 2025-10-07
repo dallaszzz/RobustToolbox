@@ -1,4 +1,4 @@
-﻿### Localization for engine console commands
+### Localization for engine console commands
 
 cmd-hint-float = [float]
 
@@ -155,11 +155,12 @@ cmd-set-ambient-light-parse = Unable to parse args as a byte values for a color.
 
 cmd-savemap-desc = Serializes a map to disk. Will not save a post-init map unless forced.
 cmd-savemap-help = savemap <MapID> <Path> [force]
-cmd-savemap-not-exist = Target map does not exist.
-cmd-savemap-init-warning = Attempted to save a post-init map without forcing the save.
+cmd-savemap-not-exist = Target map {$mapId} does not exist.
+cmd-savemap-init-warning = Attempted to save a post-init map {$mapId} without forcing the save.
 cmd-savemap-attempt = Attempting to save map {$mapId} to {$path}.
 cmd-savemap-success = Map successfully saved.
 cmd-savemap-error = Could not save map! See server log for details.
+cmd-savemap-nullspace = Tried to save nullspace.
 cmd-hint-savemap-id = <MapID>
 cmd-hint-savemap-path = <Path>
 cmd-hint-savemap-force = [bool]

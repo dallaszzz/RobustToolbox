@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using Robust.Shared.Console;
@@ -168,6 +169,11 @@ namespace Robust.Server.Console.Commands
 
         public override CompletionResult GetCompletion(IConsoleShell shell, string[] args)
         {
+            if (args.Length >= 2 && int.TryParse(args[1], out _))
+            {
+                return CompletionResult.FromHintOptions(CompletionHelper.MapIds(_entManager), Loc.GetString("cmd-hint-savemap-id"));
+            }
+
             switch (args.Length)
             {
                 case 1:
@@ -183,40 +189,62 @@ namespace Robust.Server.Console.Commands
 
         public override void Execute(IConsoleShell shell, string argStr, string[] args)
         {
-            if (args.Length < 2)
+            int pathIndex;
+            if (bool.TryParse(args[^1], out var force))
             {
-                shell.WriteLine(Help);
-                return;
+                pathIndex = args.Length - 2;
+            }
+            else
+            {
+                pathIndex = args.Length - 1;
             }
 
-            if (!int.TryParse(args[0], out var intMapId))
+            // Looks through the args up to the path arg for mapIDs
+            var sys = _system.GetEntitySystem<SharedMapSystem>(); // todo replace this with new system
+            var mapSet = new HashSet<EntityUid>();
+            for (int i = 0; i <= pathIndex - 1; i++)
             {
-                shell.WriteLine(Help);
-                return;
+                if (!int.TryParse(args[i], out var mapIdInt))
+                {
+                    shell.WriteError(Loc.GetString("cmd-savemap-not-exist", ("mapId", args[i])));
+                    return;
+                }
+
+                var mapId = new MapId(mapIdInt);
+                if (!sys.MapExists(mapId) || !sys.TryGetMap(mapId, out var mapUid))
+                {
+                    shell.WriteError(Loc.GetString("cmd-savemap-not-exist", ("mapId", args[i])));
+                    return;
+                }
+
+                if (mapId == MapId.Nullspace)
+                {
+                    shell.WriteError(Loc.GetString("cmd-savemap-nullspace"));
+                    return;
+                }
+
+                if (sys.IsInitialized(mapId) && !force)
+                {
+                    shell.WriteError(Loc.GetString("cmd-savemap-init-warning", ("mapId", args[i])));
+                    return;
+                }
+                mapSet.Add(mapUid.Value);
             }
 
-            var mapId = new MapId(intMapId);
-
-            // no saving null space
-            if (mapId == MapId.Nullspace)
-                return;
-
-            var sys = _system.GetEntitySystem<SharedMapSystem>();
-            if (!sys.MapExists(mapId))
+            // Get maps as strings and write the attempt to the console
+            var mapName = "";
+            if (mapSet.Count <= 1)
             {
-                shell.WriteError(Loc.GetString("cmd-savemap-not-exist"));
-                return;
+                mapName = mapSet.ElementAt<EntityUid>(0).ToString();
             }
-
-            if (sys.IsInitialized(mapId) &&
-                ( args.Length < 3  || !bool.TryParse(args[2], out var force) || !force))
+            else
             {
-                shell.WriteError(Loc.GetString("cmd-savemap-init-warning"));
-                return;
+                mapName = args[0 .. pathIndex].ToString();
             }
+            shell.WriteLine(Loc.GetString("cmd-savemap-attempt", ("mapId", mapName!), ("path", args[pathIndex])));
 
-            shell.WriteLine(Loc.GetString("cmd-savemap-attempt", ("mapId", mapId), ("path", args[1])));
-            bool saveSuccess = _system.GetEntitySystem<MapLoaderSystem>().TrySaveMap(mapId, new ResPath(args[1]));
+            // Save the maps
+            bool saveSuccess = _system.GetEntitySystem<MapLoaderSystem>().TrySaveGeneric(mapSet, new ResPath(args[pathIndex]), out var catagory);
             if(saveSuccess)
             {
                     shell.WriteLine(Loc.GetString("cmd-savemap-success"));
